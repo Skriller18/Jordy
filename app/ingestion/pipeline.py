@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from app.ingestion.feature_builder import build_company_input
+from app.ingestion.providers.groww import GrowwProvider
 from app.ingestion.providers.news import NewsProvider
 from app.ingestion.providers.sec import SecProvider
 from app.ingestion.providers.yahoo import YahooProvider
@@ -12,10 +13,12 @@ from app.models import CompanyInput, Country, TickerTarget
 class IngestionPipeline:
     def __init__(
         self,
+        groww: GrowwProvider | None = None,
         yahoo: YahooProvider | None = None,
         news: NewsProvider | None = None,
         sec: SecProvider | None = None,
     ) -> None:
+        self.groww = groww or GrowwProvider()
         self.yahoo = yahoo or YahooProvider()
         self.news = news or NewsProvider()
         self.sec = sec or SecProvider()
@@ -25,11 +28,18 @@ class IngestionPipeline:
         warnings: List[str] = []
 
         for target in targets:
+            snapshot = None
             try:
                 snapshot = self.yahoo.fetch_snapshot(target)
             except Exception as exc:  # noqa: BLE001
-                warnings.append(f"{target.ticker}: market/fundamental fetch failed ({exc})")
-                continue
+                warnings.append(f"{target.ticker}: Yahoo fetch failed ({exc})")
+
+            if snapshot is None:
+                try:
+                    snapshot = self.groww.fetch_snapshot(target)
+                except Exception as exc:  # noqa: BLE001
+                    warnings.append(f"{target.ticker}: Groww fetch failed ({exc})")
+                    continue
 
             sentiment = 0.0
             try:
