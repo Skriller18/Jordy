@@ -3,3 +3,12 @@ __pycache__/
 .pytest_cache/
 .venv/
 .DS_Store
+
+# Jordy dashboard (Next.js)
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.env
+dashboard/.env*.local
+dashboard/prisma/dev.db
+dashboard/prisma/dev.db-journal

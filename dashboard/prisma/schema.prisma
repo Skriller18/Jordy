@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VIEWER
+}
+
+enum Country {
+  USA
+  INDIA
+}
+
+enum Recommendation {
+  strong_candidate
+  watchlist
+  avoid
+}
+
+model User {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  name         String?
+  role         Role     @default(VIEWER)
+
+  sessions     Session[]
+  invitesUsed  InviteToken[] @relation("InviteUsedBy")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InviteToken {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+  usedAt      DateTime?
+
+  tokenHash   String   @unique
+  label       String?
+  role        Role     @default(VIEWER)
+
+  usedById    String?
+  usedBy      User?    @relation("InviteUsedBy", fields: [usedById], references: [id])
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticker    String
+  country   Country
+  tags      String   @default("")
+
+  @@unique([ticker, country])
+}
+
+model Run {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  source    String   @default("sample")
+  horizon   String   @default("long_term")
+
+  rawJson   Json
+  ideas     RankedIdea[]
+}
+
+model RankedIdea {
+  id              String         @id @default(cuid())
+  createdAt       DateTime       @default(now())
+
+  runId           String
+  run             Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  ticker          String
+  companyName     String
+  country         Country
+  recommendation  Recommendation
+  compositeScore  Float
+
+  scoreJson       Json
+  positivesJson   Json
+  negativesJson   Json
+  riskNotesJson   Json
+
+  @@index([ticker])
+  @@index([recommendation])
+}
