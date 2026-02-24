@@ -3,6 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 
 from app.data.sample_universe import sample_companies
+from app.fo.service import FoService
+from app.fo.types import FoUniverseResponse, IndicesSnapshotResponse, Nifty50SnapshotResponse
+from app.fo.universe import NIFTY50
 from app.ingestion import IngestionPipeline
 from app.models import (
     Horizon,
@@ -15,6 +18,7 @@ from app.scoring.ranking import rank_companies
 
 app = FastAPI(title="Equity Research Bot API", version="0.1.0")
 ingestion_pipeline = IngestionPipeline()
+fo_service = FoService()
 
 
 @app.get("/health")
@@ -45,3 +49,25 @@ def ingest_and_rank(payload: IngestRankRequest) -> IngestRankResponse:
         ingested_count=len(companies),
         warnings=warnings,
     )
+
+
+# -----------------
+# F&O / Indices APIs
+# -----------------
+
+
+@app.get("/v1/fo/universe", response_model=FoUniverseResponse)
+def fo_universe() -> FoUniverseResponse:
+    # Indices: NIFTY + SENSEX; NIFTY 50 constituents list.
+    return FoUniverseResponse(indices=["NIFTY", "SENSEX"], nifty50=NIFTY50)
+
+
+@app.get("/v1/fo/indices/snapshot", response_model=IndicesSnapshotResponse)
+def fo_indices_snapshot() -> IndicesSnapshotResponse:
+    return fo_service.indices_snapshot()
+
+
+@app.get("/v1/fo/nifty50/snapshot", response_model=Nifty50SnapshotResponse)
+def fo_nifty50_snapshot(limit: int = 50) -> Nifty50SnapshotResponse:
+    limit = max(1, min(50, limit))
+    return fo_service.nifty50_snapshot(limit=limit)

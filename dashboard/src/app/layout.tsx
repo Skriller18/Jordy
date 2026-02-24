@@ -36,7 +36,8 @@ export default async function RootLayout({
               </Link>
               <Separator orientation="vertical" className="h-5" />
               <nav className="flex items-center gap-4">
-                <NavLink href="/" label="Dashboard" />
+                <NavLink href="/" label="Equity" />
+                <NavLink href="/fo" label="F&O" />
                 <NavLink href="/watchlist" label="Watchlist" />
                 <NavLink href="/runs" label="Runs" />
                 {user?.role === "ADMIN" ? <NavLink href="/admin/invites" label="Admin" /> : null}
