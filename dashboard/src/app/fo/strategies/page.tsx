@@ -92,6 +92,17 @@ export default function FoStrategiesPage() {
         </Card>
       ) : null}
 
+      {data && rows.every((r) => r.strategy === "no_data") ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Option chain data unavailable</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Option chain returned 0 strikes (or empty payload), so strategy picks are blocked. Try again during market hours.
+          </CardContent>
+        </Card>
+      ) : null}
+
       {data ? (
         <Card>
           <CardHeader>
