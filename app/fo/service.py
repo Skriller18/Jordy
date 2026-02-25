@@ -68,19 +68,21 @@ class FoService:
         now_ms = int(time.time() * 1000)
         warnings: List[str] = []
 
-        # Groww get_ltp requires tuples of strings like "NSE:RELIANCE" (per docs: exchange_trading_symbols)
-        symbols = tuple(f"NSE:{t}" for t in NIFTY50[:limit])
+        # Groww get_ltp expects strings like "NSE_RELIANCE" (exchange + '_' + symbol)
+        symbols = tuple(f"NSE_{t}" for t in NIFTY50[:limit])
         rows: List[Nifty50SnapshotRow] = []
 
         try:
             payload = self.groww.get_ltp_cash(symbols)
             # Expected shape is SDK-defined; we handle common dict-ish formats.
             for t in NIFTY50[:limit]:
-                key = f"NSE:{t}"
+                key = f"NSE_{t}"
                 node = payload.get(key) if isinstance(payload, dict) else None
                 ltp = None
                 if isinstance(node, dict):
                     ltp = node.get("ltp")
+                elif isinstance(node, (int, float)):
+                    ltp = float(node)
                 rows.append(
                     Nifty50SnapshotRow(
                         ticker=t,
