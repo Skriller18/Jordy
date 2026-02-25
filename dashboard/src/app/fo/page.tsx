@@ -32,6 +32,16 @@ export default function FoHome() {
             </Link>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Strategy Lab</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link className="underline" href="/fo/strategies">
+              Run strategy picks (NIFTY + NIFTY50)
+            </Link>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
