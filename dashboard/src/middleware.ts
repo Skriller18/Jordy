@@ -7,6 +7,7 @@ const COOKIE_NAME = "jd_session";
 
 const PUBLIC_PATHS = [
   /^\/invite\//,
+  /^\/unauthorized$/,
   /^\/api\/health$/,
   /^\/_next\//,
   /^\/favicon\.ico$/,
