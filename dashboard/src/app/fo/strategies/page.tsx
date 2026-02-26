@@ -37,7 +37,7 @@ export default function FoStrategiesPage() {
       const res = await fetch("/api/jordy/v1/fo/strategies/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ underlyings, horizon: "short_term" }),
+        body: JSON.stringify({ underlyings, horizon: "short_term", expiry_date: "2026-03-30" }),
       });
       const json = await res.json();
       setData(json);

@@ -88,13 +88,19 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
 
     und = metrics.get("underlying")
     if not isinstance(und, (int, float)):
+        msg = "Option chain data unavailable; cannot compute strategy."
+        if metrics.get("groww_strikes_present"):
+            msg = (
+                "Groww option chain returned strikes, but we haven't normalized/parsed Groww strikes yet. "
+                "(Implementation pending.)"
+            )
         return StrategyPick(
             underlying=str(metrics.get("symbol") or "UNKNOWN"),
             strategy="no_data",
             risk="low",
             expected_edge="none",
             score=0.0,
-            rationale=["Option chain data unavailable; cannot compute strategy."],
+            rationale=[msg],
             key_metrics=metrics,
         )
 
