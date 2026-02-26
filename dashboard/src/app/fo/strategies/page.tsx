@@ -17,10 +17,32 @@ type Pick = {
   key_metrics: any;
 };
 
+type ProxyBacktest = {
+  horizon_days: number;
+  samples: number;
+  avg_return_pct: number;
+  median_return_pct: number;
+  win_rate_pct: number;
+  worst_return_pct: number;
+  best_return_pct: number;
+};
+
+type Explain = {
+  underlying: string;
+  strategy: string;
+  hypothesis: string[];
+  assumptions: string[];
+  failure_modes: string[];
+  proxy_backtests: ProxyBacktest[];
+  notes: string[];
+};
+
 type Resp = {
   disclaimer: string;
   best_overall: Pick;
   best_min_risk: Pick;
+  best_overall_explain?: Explain | null;
+  best_min_risk_explain?: Explain | null;
   results: Pick[];
   warnings: string[];
 };
@@ -38,7 +60,7 @@ export default function FoStrategiesPage() {
       const res = await fetch("/api/jordy/v1/fo/strategies/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ underlyings, horizon: "short_term" }),
+        body: JSON.stringify({ underlyings, horizon: "short_term", include_explanations: true }),
       });
       const json = await res.json();
       setData(json);
@@ -123,6 +145,29 @@ export default function FoStrategiesPage() {
                   <li key={i}>{r}</li>
                 ))}
               </ul>
+
+              {data.best_overall_explain ? (
+                <div className="pt-2 space-y-2">
+                  <div className="font-medium">Hypothesis</div>
+                  <ul className="list-disc pl-5 text-muted-foreground">
+                    {data.best_overall_explain.hypothesis.slice(0, 5).map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                  {data.best_overall_explain.proxy_backtests?.length ? (
+                    <>
+                      <div className="font-medium">Proxy backtest (underlying-only)</div>
+                      <ul className="list-disc pl-5 text-muted-foreground">
+                        {data.best_overall_explain.proxy_backtests.map((b, i) => (
+                          <li key={i}>
+                            {b.horizon_days}d: avg {b.avg_return_pct.toFixed(2)}% | win {b.win_rate_pct.toFixed(0)}% | n={b.samples}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -143,6 +188,29 @@ export default function FoStrategiesPage() {
                   <li key={i}>{r}</li>
                 ))}
               </ul>
+
+              {data.best_min_risk_explain ? (
+                <div className="pt-2 space-y-2">
+                  <div className="font-medium">Hypothesis</div>
+                  <ul className="list-disc pl-5 text-muted-foreground">
+                    {data.best_min_risk_explain.hypothesis.slice(0, 5).map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                  {data.best_min_risk_explain.proxy_backtests?.length ? (
+                    <>
+                      <div className="font-medium">Proxy backtest (underlying-only)</div>
+                      <ul className="list-disc pl-5 text-muted-foreground">
+                        {data.best_min_risk_explain.proxy_backtests.map((b, i) => (
+                          <li key={i}>
+                            {b.horizon_days}d: avg {b.avg_return_pct.toFixed(2)}% | win {b.win_rate_pct.toFixed(0)}% | n={b.samples}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>

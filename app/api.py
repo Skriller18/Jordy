@@ -5,6 +5,9 @@ from fastapi import FastAPI, HTTPException
 from app.data.sample_universe import sample_companies
 from app.fo.service import FoService
 from app.fo.strategy_service import StrategyService
+from app.fo.explain import build_explanation
+from app.ingestion.providers.groww import GrowwProvider
+from app.fo.strategy_explain_types import StrategyExplanationModel
 from app.fo.strategy_types import (
     StrategiesRunRequest,
     StrategiesRunResponse,
@@ -26,6 +29,7 @@ app = FastAPI(title="Equity Research Bot API", version="0.1.0")
 ingestion_pipeline = IngestionPipeline()
 fo_service = FoService()
 strategy_service = StrategyService()
+_groww_provider = GrowwProvider()
 
 
 @app.get("/health")
@@ -142,10 +146,84 @@ def fo_strategies_run(payload: StrategiesRunRequest) -> StrategiesRunResponse:
 
     best_min_risk = max(picks, key=conservative_score)
 
+    best_overall_explain = None
+    best_min_risk_explain = None
+
+    if payload.include_explanations:
+        def _closes(sym: str) -> list[float]:
+            # Use Groww candles for underlying proxy backtest; for NIFTY use cash symbol.
+            from app.models import Country, TickerTarget
+            snap = _groww_provider.fetch_snapshot(TickerTarget(ticker=sym, country=Country.INDIA))
+            return [float(x) for x in (snap.closes or []) if isinstance(x, (int, float))]
+
+        try:
+            c = _closes(best.underlying)
+            exp = build_explanation(
+                underlying=best.underlying,
+                strategy=best.strategy,
+                key_metrics=best.key_metrics,
+                closes=c,
+            )
+            best_overall_explain = {
+                "underlying": exp.underlying,
+                "strategy": exp.strategy,
+                "hypothesis": exp.hypothesis,
+                "assumptions": exp.assumptions,
+                "failure_modes": exp.failure_modes,
+                "proxy_backtests": [
+                    {
+                        "horizon_days": b.horizon_days,
+                        "samples": b.samples,
+                        "avg_return_pct": b.avg_return_pct,
+                        "median_return_pct": b.median_return_pct,
+                        "win_rate_pct": b.win_rate_pct,
+                        "worst_return_pct": b.worst_return_pct,
+                        "best_return_pct": b.best_return_pct,
+                    }
+                    for b in exp.proxy_backtests
+                ],
+                "notes": exp.notes,
+            }
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"{best.underlying}: explain/backtest failed ({exc})")
+
+        try:
+            c = _closes(best_min_risk.underlying)
+            exp = build_explanation(
+                underlying=best_min_risk.underlying,
+                strategy=best_min_risk.strategy,
+                key_metrics=best_min_risk.key_metrics,
+                closes=c,
+            )
+            best_min_risk_explain = {
+                "underlying": exp.underlying,
+                "strategy": exp.strategy,
+                "hypothesis": exp.hypothesis,
+                "assumptions": exp.assumptions,
+                "failure_modes": exp.failure_modes,
+                "proxy_backtests": [
+                    {
+                        "horizon_days": b.horizon_days,
+                        "samples": b.samples,
+                        "avg_return_pct": b.avg_return_pct,
+                        "median_return_pct": b.median_return_pct,
+                        "win_rate_pct": b.win_rate_pct,
+                        "worst_return_pct": b.worst_return_pct,
+                        "best_return_pct": b.best_return_pct,
+                    }
+                    for b in exp.proxy_backtests
+                ],
+                "notes": exp.notes,
+            }
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"{best_min_risk.underlying}: explain/backtest failed ({exc})")
+
     return StrategiesRunResponse(
         disclaimer=disclaimer,
         best_overall=to_model(best),
         best_min_risk=to_model(best_min_risk),
+        best_overall_explain=best_overall_explain,
+        best_min_risk_explain=best_min_risk_explain,
         results=[to_model(p) for p in picks],
         warnings=warnings,
     )
