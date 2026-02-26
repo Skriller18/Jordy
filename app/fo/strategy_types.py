@@ -23,7 +23,13 @@ class StrategiesRunRequest(BaseModel):
 
 class StrategiesRunResponse(BaseModel):
     disclaimer: str
+
+    # Profit-seeking (may include high-risk strategies)
     best_overall: StrategyPickModel
+
+    # Conservative best pick (defined-risk preference)
+    best_min_risk: StrategyPickModel
+
     results: List[StrategyPickModel]
     warnings: List[str]
 

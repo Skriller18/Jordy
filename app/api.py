@@ -127,9 +127,25 @@ def fo_strategies_run(payload: StrategiesRunRequest) -> StrategiesRunResponse:
             "key_metrics": p.key_metrics,
         }
 
+    # Conservative pick: prefer defined-risk / non-high-risk strategies
+    allowed = {"covered_call", "cash_secured_put", "bull_put_spread", "bear_call_spread", "iron_condor"}
+
+    def conservative_score(p):
+        base = float(p.score)
+        # penalize high risk heavily
+        if p.risk == "high":
+            base -= 100.0
+        # penalize non-defined-risk strategies
+        if p.strategy not in allowed:
+            base -= 30.0
+        return base
+
+    best_min_risk = max(picks, key=conservative_score)
+
     return StrategiesRunResponse(
         disclaimer=disclaimer,
         best_overall=to_model(best),
+        best_min_risk=to_model(best_min_risk),
         results=[to_model(p) for p in picks],
         warnings=warnings,
     )

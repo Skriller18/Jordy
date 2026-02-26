@@ -20,6 +20,7 @@ type Pick = {
 type Resp = {
   disclaimer: string;
   best_overall: Pick;
+  best_min_risk: Pick;
   results: Pick[];
   warnings: string[];
 };
@@ -104,25 +105,47 @@ export default function FoStrategiesPage() {
       ) : null}
 
       {data ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Best overall (by heuristic score)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div>
-              <span className="font-medium">{data.best_overall.underlying}</span> → {data.best_overall.strategy}{" "}
-              <Badge className="ml-2" variant="secondary">
-                {data.best_overall.risk}
-              </Badge>
-            </div>
-            <div className="text-muted-foreground">{data.disclaimer}</div>
-            <ul className="list-disc pl-5 text-muted-foreground">
-              {(data.best_overall.rationale || []).slice(0, 5).map((r, i) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Best overall (profit-seeking)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <span className="font-medium">{data.best_overall.underlying}</span> → {data.best_overall.strategy}{" "}
+                <Badge className="ml-2" variant="secondary">
+                  {data.best_overall.risk}
+                </Badge>
+              </div>
+              <div className="text-muted-foreground">{data.disclaimer}</div>
+              <ul className="list-disc pl-5 text-muted-foreground">
+                {(data.best_overall.rationale || []).slice(0, 5).map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Best minimal-risk (defined-risk preference)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <span className="font-medium">{data.best_min_risk.underlying}</span> → {data.best_min_risk.strategy}{" "}
+                <Badge className="ml-2" variant="secondary">
+                  {data.best_min_risk.risk}
+                </Badge>
+              </div>
+              <div className="text-muted-foreground">We prefer spreads/iron condor/covered-call style picks; avoid naked high-risk picks.</div>
+              <ul className="list-disc pl-5 text-muted-foreground">
+                {(data.best_min_risk.rationale || []).slice(0, 5).map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
 
       <Card>
