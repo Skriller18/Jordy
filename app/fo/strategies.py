@@ -191,6 +191,7 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
 
     atm_iv = metrics.get("atm_iv")
     pcr = metrics.get("pcr")
+    iv_pct = metrics.get("iv_percentile")
 
     # Defaults
     strategy = "cash_secured_put"
@@ -199,11 +200,55 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
     score = 50.0
     rationale: List[str] = []
 
-    if isinstance(atm_iv, (int, float)):
-        # Very high IV regime: prefer ratio spreads (research heuristic)
+    # Prefer IV percentile when available (relative regime), else fall back to absolute IV thresholds.
+    if isinstance(iv_pct, (int, float)):
+        pct = float(iv_pct)
+        rationale.append(f"IV percentile ~{pct:.0f} (vs stored history)")
+
+        if pct >= 90:
+            rationale.append("IV is in an extreme high percentile; prefer ratio spreads / premium-selling with convex protection")
+            if pcr is not None and pcr >= 1.0:
+                strategy = "put_ratio_spread"
+            elif pcr is not None and pcr <= 0.9:
+                strategy = "call_ratio_spread"
+            else:
+                # balanced: defined-risk neutral structure
+                strategy = "iron_condor"
+                risk = "medium"
+            edge = "premium_capture_with_wings"
+            score = 78.0
+
+        elif pct >= 70:
+            rationale.append("High IV percentile; premium selling favored, prefer defined-risk")
+            if pcr is not None and 0.8 <= pcr <= 1.2:
+                strategy = "iron_condor" if horizon == "long_term" else "short_strangle"
+                risk = "medium" if strategy == "iron_condor" else "high"
+                edge = "premium_capture"
+                score = 70.0
+            else:
+                strategy = "bear_call_spread" if (pcr is not None and pcr < 0.9) else "bull_put_spread"
+                risk = "medium"
+                edge = "defined_risk_premium"
+                score = 66.0
+
+        elif pct <= 25:
+            rationale.append("Low IV percentile; long-vol structures may be favored")
+            strategy = "long_straddle"
+            risk = "high"
+            edge = "vol_expansion"
+            score = 62.0
+
+        else:
+            rationale.append("Mid IV percentile; prefer defined-risk income structures")
+            strategy = "bull_put_spread" if (pcr is not None and pcr >= 1.0) else "bear_call_spread"
+            risk = "medium"
+            edge = "defined_risk_premium"
+            score = 58.0
+
+    elif isinstance(atm_iv, (int, float)):
+        # Absolute IV regime fallback
         if atm_iv > 25:
             rationale.append(f"ATM IV is very high (~{atm_iv:.1f}); prefer ratio spreads over naked premium selling")
-            # Use PCR for directional tilt: PCR>1 tends to be put-heavy (bullish), PCR<1 call-heavy (bearish)
             if pcr is not None and pcr >= 1.0:
                 strategy = "put_ratio_spread"
                 edge = "premium_capture_with_wings"
@@ -216,7 +261,6 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
                 rationale.append(f"PCR ~{pcr:.2f} used for ratio-spread direction")
         elif atm_iv >= 18:
             rationale.append(f"ATM IV is elevated (~{atm_iv:.1f}), option premiums relatively rich")
-            # premium-selling candidates
             if pcr is not None and 0.8 <= pcr <= 1.2:
                 strategy = "short_strangle"
                 risk = "high"

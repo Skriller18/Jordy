@@ -9,6 +9,7 @@ from app.fo.groww_chain import summarize_groww_chain
 from app.fo.groww_client import GrowwFoClient
 from app.fo.nse_client import NseClient
 from app.fo.strategies import StrategyPick, pick_strategy, summarize_nse_chain
+from app.iv_history import iv_percentile
 
 
 class StrategyService:
@@ -84,6 +85,15 @@ class StrategyService:
                 metrics.update(summarize_nse_chain(nse))
             except Exception as exc:  # noqa: BLE001
                 warnings.append(f"{sym_u}: NSE option chain failed ({exc})")
+
+            # If we have current IV, compute IV percentile from stored historical series (if present).
+            try:
+                if isinstance(metrics.get("atm_iv"), (int, float)):
+                    pct = iv_percentile(symbol=sym_u, current_iv=float(metrics.get("atm_iv")))
+                    if pct is not None:
+                        metrics["iv_percentile"] = float(pct)
+            except Exception:
+                pass
 
             picks.append(pick_strategy(metrics, horizon=horizon))
 

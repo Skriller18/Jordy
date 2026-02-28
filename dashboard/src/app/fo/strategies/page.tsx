@@ -227,6 +227,8 @@ export default function FoStrategiesPage() {
                 <TableHead>Underlying</TableHead>
                 <TableHead>Strategy</TableHead>
                 <TableHead>Risk</TableHead>
+                <TableHead className="text-right">Current IV</TableHead>
+                <TableHead className="text-right">IV pct</TableHead>
                 <TableHead className="text-right">Strike Rates considered</TableHead>
                 <TableHead className="text-right">Score</TableHead>
               </TableRow>
@@ -242,6 +244,14 @@ export default function FoStrategiesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
+                    {Number.isFinite((r as any)?.key_metrics?.atm_iv) ? Number((r as any).key_metrics.atm_iv).toFixed(2) : "–"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {Number.isFinite((r as any)?.key_metrics?.iv_percentile)
+                      ? Number((r as any).key_metrics.iv_percentile).toFixed(0)
+                      : "–"}
+                  </TableCell>
+                  <TableCell className="text-right">
                     {Array.isArray((r as any)?.key_metrics?.strike_prices_considered)
                       ? ((r as any).key_metrics.strike_prices_considered as number[])
                           .slice(0, 6)
@@ -254,7 +264,7 @@ export default function FoStrategiesPage() {
               ))}
               {!rows.length ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">
                     No data yet.
                   </TableCell>
                 </TableRow>
