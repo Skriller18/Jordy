@@ -82,6 +82,22 @@ model Run {
   ideas     RankedIdea[]
 }
 
+model IvDaily {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+
+  symbol     String
+  date       DateTime
+  iv         Float
+  expiryDate DateTime?
+  source     String   @default("unknown")
+  rawJson    Json?
+
+  @@unique([symbol, date])
+  @@index([symbol])
+  @@index([date])
+}
+
 model RankedIdea {
   id              String         @id @default(cuid())
   createdAt       DateTime       @default(now())
