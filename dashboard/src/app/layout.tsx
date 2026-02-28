@@ -39,6 +39,7 @@ export default async function RootLayout({
                 <NavLink href="/" label="Equity" />
                 <NavLink href="/fo" label="F&O" />
                 <NavLink href="/watchlist" label="Watchlist" />
+                <NavLink href="/iv" label="IV" />
                 <NavLink href="/runs" label="Runs" />
                 {user?.role === "ADMIN" ? <NavLink href="/admin/invites" label="Admin" /> : null}
               </nav>
