@@ -19,6 +19,89 @@ def _nearest_strike(strikes: List[int], ltp: float) -> int:
     return min(strikes, key=lambda s: abs(float(s) - float(ltp)))
 
 
+def _strike_step(strikes: List[float], atm: float) -> float:
+    """Estimate the strike interval around ATM."""
+
+    if not strikes or len(strikes) < 2:
+        return 50.0
+    xs = sorted(float(x) for x in strikes)
+    # find nearest index
+    idx = min(range(len(xs)), key=lambda i: abs(xs[i] - float(atm)))
+    # look at local diffs
+    diffs: List[float] = []
+    for j in range(max(1, idx - 5), min(len(xs), idx + 6)):
+        diffs.append(abs(xs[j] - xs[j - 1]))
+    diffs = [d for d in diffs if d > 0]
+    if not diffs:
+        return 50.0
+    diffs.sort()
+    return float(diffs[len(diffs) // 2])
+
+
+def _pick_nearest(xs: List[float], target: float) -> float:
+    return min(xs, key=lambda v: abs(float(v) - float(target)))
+
+
+def strikes_considered(*, strategy: str, strike_prices: List[float], atm_strike: float) -> List[float]:
+    """Choose a small set of strikes that the strategy would typically use.
+
+    Note: this is a heuristic mapping used for display/explainability.
+    """
+
+    xs = sorted(float(x) for x in (strike_prices or []))
+    if not xs:
+        return []
+
+    step = _strike_step(xs, atm_strike)
+
+    def near(t: float) -> float:
+        return _pick_nearest(xs, t)
+
+    # Offsets expressed in strike steps around ATM
+    if strategy == "long_straddle":
+        return [near(atm_strike)]
+
+    if strategy == "cash_secured_put":
+        return [near(atm_strike - 1 * step)]
+
+    if strategy == "covered_call":
+        return [near(atm_strike + 1 * step)]
+
+    if strategy == "bull_put_spread":
+        sp = near(atm_strike - 1 * step)
+        lp = near(atm_strike - 3 * step)
+        return sorted({sp, lp})
+
+    if strategy == "bear_call_spread":
+        sc = near(atm_strike + 1 * step)
+        lc = near(atm_strike + 3 * step)
+        return sorted({sc, lc})
+
+    if strategy == "iron_condor":
+        sp = near(atm_strike - 1 * step)
+        lp = near(atm_strike - 3 * step)
+        sc = near(atm_strike + 1 * step)
+        lc = near(atm_strike + 3 * step)
+        return sorted({sp, lp, sc, lc})
+
+    if strategy == "short_strangle":
+        sp = near(atm_strike - 2 * step)
+        sc = near(atm_strike + 2 * step)
+        return sorted({sp, sc})
+
+    if strategy == "call_ratio_spread":
+        sc = near(atm_strike + 1 * step)
+        bc = near(atm_strike + 3 * step)
+        return sorted({sc, bc})
+
+    if strategy == "put_ratio_spread":
+        sp = near(atm_strike - 1 * step)
+        bp = near(atm_strike - 3 * step)
+        return sorted({sp, bp})
+
+    return []
+
+
 def summarize_nse_chain(nse: dict) -> dict:
     """Extract usable metrics from NSE option chain response."""
 
@@ -76,6 +159,8 @@ def summarize_nse_chain(nse: dict) -> dict:
         "pcr": pcr,
         "call_oi": c_oi,
         "put_oi": p_oi,
+        # strike ladder available in the chain
+        "strike_prices": [float(s) for s in strikes],
         "records": len(records),
     }
 
@@ -115,7 +200,21 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
     rationale: List[str] = []
 
     if isinstance(atm_iv, (int, float)):
-        if atm_iv >= 18:
+        # Very high IV regime: prefer ratio spreads (research heuristic)
+        if atm_iv > 25:
+            rationale.append(f"ATM IV is very high (~{atm_iv:.1f}); prefer ratio spreads over naked premium selling")
+            # Use PCR for directional tilt: PCR>1 tends to be put-heavy (bullish), PCR<1 call-heavy (bearish)
+            if pcr is not None and pcr >= 1.0:
+                strategy = "put_ratio_spread"
+                edge = "premium_capture_with_wings"
+            else:
+                strategy = "call_ratio_spread"
+                edge = "premium_capture_with_wings"
+            risk = "high"
+            score = 75.0
+            if pcr is not None:
+                rationale.append(f"PCR ~{pcr:.2f} used for ratio-spread direction")
+        elif atm_iv >= 18:
             rationale.append(f"ATM IV is elevated (~{atm_iv:.1f}), option premiums relatively rich")
             # premium-selling candidates
             if pcr is not None and 0.8 <= pcr <= 1.2:
@@ -153,6 +252,16 @@ def pick_strategy(metrics: dict, *, horizon: str = "short_term") -> StrategyPick
         edge = "defined_risk_premium"
         score = min(score, 66.0)
         rationale.append("Positional horizon: using defined-risk variant (iron condor) instead of naked strangle")
+
+    # Attach strike ladder info for UI display (if available)
+    try:
+        atm = metrics.get("atm_strike")
+        ladder = metrics.get("strike_prices")
+        if isinstance(atm, (int, float)) and isinstance(ladder, list) and ladder:
+            cons = strikes_considered(strategy=strategy, strike_prices=[float(x) for x in ladder], atm_strike=float(atm))
+            metrics["strike_prices_considered"] = cons
+    except Exception:
+        pass
 
     return StrategyPick(
         underlying=str(metrics.get("symbol") or "UNKNOWN"),

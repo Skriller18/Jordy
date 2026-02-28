@@ -57,7 +57,7 @@ export default function FoStrategiesPage() {
       // Run for NIFTY + all NIFTY50 underlyings (50)
       const uni = await fetch("/api/jordy/v1/fo/universe", { cache: "no-store" }).then((r) => r.json());
       const underlyings = ["NIFTY", ...(uni?.nifty50 || [])];
-      const res = await fetch("/api/jordy/v1/fo/strategies/run", {
+      const res = await fetch("/api/fo/strategies/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ underlyings, horizon: "short_term", include_explanations: true }),
@@ -227,6 +227,7 @@ export default function FoStrategiesPage() {
                 <TableHead>Underlying</TableHead>
                 <TableHead>Strategy</TableHead>
                 <TableHead>Risk</TableHead>
+                <TableHead className="text-right">Strike Rates considered</TableHead>
                 <TableHead className="text-right">Score</TableHead>
               </TableRow>
             </TableHeader>
@@ -240,12 +241,20 @@ export default function FoStrategiesPage() {
                       {r.risk}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    {Array.isArray((r as any)?.key_metrics?.strike_prices_considered)
+                      ? ((r as any).key_metrics.strike_prices_considered as number[])
+                          .slice(0, 6)
+                          .map((x) => Number(x).toFixed(0))
+                          .join(",")
+                      : "–"}
+                  </TableCell>
                   <TableCell className="text-right">{r.score.toFixed(0)}</TableCell>
                 </TableRow>
               ))}
               {!rows.length ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-sm text-muted-foreground">
+                  <TableCell colSpan={5} className="text-sm text-muted-foreground">
                     No data yet.
                   </TableCell>
                 </TableRow>

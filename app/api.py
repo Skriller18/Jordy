@@ -100,6 +100,8 @@ def fo_strategies_universe() -> StrategiesUniverseResponse:
             "iron_condor",
             "long_straddle",
             "short_strangle",
+            "call_ratio_spread",
+            "put_ratio_spread",
             "no_data",
         ],
         risk_levels=["low", "medium", "high"],

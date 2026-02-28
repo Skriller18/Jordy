@@ -79,5 +79,7 @@ def summarize_groww_chain(oc: dict) -> dict:
         "pcr": pcr,
         "call_oi": call_oi,
         "put_oi": put_oi,
+        # strike ladder available in the chain
+        "strike_prices": [float(x) for x in strike_vals],
         "records": len(strikes),
     }

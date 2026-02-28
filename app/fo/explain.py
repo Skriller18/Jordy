@@ -18,9 +18,9 @@ class StrategyExplanation:
 
 
 def _vol_band(vols: list[float], current: float) -> Tuple[float, float]:
-    # Use a simple +/- 10% band around current, with a minimum width.
-    lo = max(0.0, current * 0.9)
-    hi = current * 1.1
+    # Use a simple +/- 25% band around current, with a minimum width.
+    lo = max(0.0, current * 0.75)
+    hi = current * 1.25
     if hi - lo < 2.0:
         lo = max(0.0, current - 1.0)
         hi = current + 1.0
@@ -33,6 +33,7 @@ def build_explanation(
     strategy: str,
     key_metrics: Dict[str, Any],
     closes: List[float],
+    backtest_days: int = 252,
 ) -> StrategyExplanation:
     hyp: List[str] = []
     assumptions: List[str] = []
@@ -69,6 +70,17 @@ def build_explanation(
             "Volatility expansion after entry.",
             "Liquidity/margin shocks.",
         ]
+    elif strategy in ("call_ratio_spread", "put_ratio_spread"):
+        assumptions += [
+            "Implied volatility is very high and likely to mean-revert (IV crush helps).",
+            "Directional move is limited/moderate; extreme tail moves are rare over the holding window.",
+            "You size the position to survive adverse tails and understand assignment/margin behavior.",
+        ]
+        failures += [
+            "Large tail move beyond the short strike region (ratio spreads can have convex/unbounded risk depending on construction).",
+            "Volatility expands further after entry.",
+            "Liquidity/margin shocks or early assignment impacts.",
+        ]
     elif strategy in ("bull_put_spread", "bear_call_spread"):
         assumptions += [
             "Directional bias is mild-to-moderate (trend or mean reversion).",
@@ -98,8 +110,15 @@ def build_explanation(
         ]
 
     # Proxy backtest using realized-vol regime (underlying-only)
+    # Keep the backtest window bounded (default: last 252 trading days), while ensuring
+    # we have enough lookback for vol_window and forward horizons.
+    max_h = 20
+    vol_window = 20
+    need = backtest_days + vol_window + max_h + 1
+    closes_bt = closes[-need:] if len(closes) > need else closes
+
     proxy: List[ProxyBacktestResult] = []
-    vols = realized_vol_pct(closes, window=20)
+    vols = realized_vol_pct(closes_bt, window=vol_window)
     curr = None
     for v in reversed(vols):
         if v is not None:
@@ -112,8 +131,8 @@ def build_explanation(
         lo, hi = _vol_band([x for x in vols if x is not None], curr)
         notes.append(f"Proxy backtest conditioned on realized vol ~{curr:.1f}% (band {lo:.1f}-{hi:.1f}%).")
         # 5d and 20d forward returns
-        proxy.append(proxy_forward_returns(closes, match_vol_range=(lo, hi), horizon_days=5))
-        proxy.append(proxy_forward_returns(closes, match_vol_range=(lo, hi), horizon_days=20))
+        proxy.append(proxy_forward_returns(closes_bt, match_vol_range=(lo, hi), horizon_days=5, vol_window=vol_window))
+        proxy.append(proxy_forward_returns(closes_bt, match_vol_range=(lo, hi), horizon_days=20, vol_window=vol_window))
 
     notes.append("Proxy backtest measures underlying forward returns, NOT options strategy P&L.")
 
