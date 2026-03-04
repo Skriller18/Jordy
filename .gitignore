@@ -15,3 +15,7 @@ dashboard/.env
 dashboard/.env*.local
 dashboard/prisma/dev.db
 dashboard/prisma/dev.db-journal
+
+# Logs
+*.log
+**/*.log
